@@ -27,7 +27,7 @@
 ### 1. 克隆仓库
 
 ```bash
-git clone https://github.com/你的用户名/markdown-to-gongwen.git
+git clone https://github.com/ijerrywong/markdown-to-gongwen.git
 cd markdown-to-gongwen
 ```
 
