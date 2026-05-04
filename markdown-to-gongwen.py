@@ -30,7 +30,7 @@ class GongwenFormat:
     BODY_FONT = "仿宋_GB2312"
     BODY_SIZE = Pt(16)             # 三号 = 16pt
     BODY_LINE_SPACING = Pt(28)     # 固定值 28 磅
-    BODY_FIRST_LINE_INDENT = Cm(0.85)  # 约 2 个中文字符
+    BODY_FIRST_LINE_INDENT = Pt(32)    # 三号字 16pt × 2 = 32pt（2 个中文字符）
 
     # 标题字体字号（文档主标题 —— 用“# ”标记）
     MAIN_TITLE_FONT = "方正小标宋简体"
@@ -60,39 +60,65 @@ class GongwenFormat:
 # 全角半角处理工具
 # ============================================================
 def fullwidth_to_halfwidth(text: str) -> str:
-    """将全角字母/数字转为半角。"""
+    """将全角字母/数字转为半角（不影响全角中文标点）。"""
+    # 全角→半角偏移量
+    OFFSET = 0xFEE0
     result = []
     for ch in text:
         code = ord(ch)
-        if code == 0x3000:          # 全角空格
+        if code == 0x3000:                # 全角空格
             result.append(' ')
-        elif 0xFF01 <= code <= 0xFF5E:  # 全角字母/数字/符号
-            result.append(chr(code - 0xFEE0))
-        elif 0x2018 <= code <= 0x201D or code == 0x3001 or code == 0x3002:
-            # 保留中文弯引号及顿号、句号
-            result.append(ch)
+        elif 0xFF10 <= code <= 0xFF19:    # 全角数字 ０-９
+            result.append(chr(code - OFFSET))
+        elif 0xFF21 <= code <= 0xFF3A:    # 全角大写字母 Ａ-Ｚ
+            result.append(chr(code - OFFSET))
+        elif 0xFF41 <= code <= 0xFF5A:    # 全角小写字母 ａ-ｚ
+            result.append(chr(code - OFFSET))
         else:
             result.append(ch)
     return ''.join(result)
-
-
 def halfwidth_punct_to_fullwidth(text: str) -> str:
-    """将英文半角标点转为中文全角（仅限正文类标点）。"""
+    """自动识别上下文转换标点：中文环境使用全角，英文/数字环境使用半角。"""
+
+    def is_cjk(ch: str) -> bool:
+        """判断是否为中文字符（CJK 统一表意文字及CJK符号）。"""
+        cp = ord(ch)
+        return (0x4E00 <= cp <= 0x9FFF) or (0x3000 <= cp <= 0x303F)
+
     mapping = {
-        ',': '，',
-        '.': '。',
-        ';': '；',
-        ':': '：',
-        '?': '？',
-        '!': '！',
-        '(': '（',
-        ')': '）',
-        '[': '［',
-        ']': '］',
+        ',': '，', ';': '；', ':': '：',
+        '?': '？', '!': '！',
+        '(': '（', ')': '）', '[': '［', ']': '］',
     }
-    for half, full in mapping.items():
-        text = text.replace(half, full)
-    return text
+
+    result = list(text)
+    for i, ch in enumerate(result):
+        if ch not in mapping and ch != '.':
+            continue
+
+        prev = result[i - 1] if i > 0 else ''
+        next_ch = result[i + 1] if i < len(result) - 1 else ''
+
+        if ch == '.':
+            # 句点：数字编号/版本号保持半角，中文环境转全角
+            if prev and (prev.isdigit() or prev.isalpha()):
+                # "1." 编号、"3.0" 版本号 → 半角
+                if (not next_ch) or next_ch.isspace() or next_ch.isdigit() or next_ch.isalpha():
+                    continue
+            # 前后有CJK → 全角句号
+            if is_cjk(prev) or is_cjk(next_ch):
+                result[i] = '。'
+            # 孤立的句点 → 默认全角（中文文档）
+            elif not (prev or next_ch):
+                result[i] = '。'
+            continue
+
+        # 其他标点：CJK 上下文 → 全角
+        if is_cjk(prev) or is_cjk(next_ch):
+            result[i] = mapping[ch]
+        # 否则保持半角（纯英文/数字环境）
+
+    return ''.join(result)
 
 
 def ensure_liu_jiao_bracket(text: str) -> str:
@@ -102,6 +128,15 @@ def ensure_liu_jiao_bracket(text: str) -> str:
     """
     pattern = regex.compile(r'\[(\d{4})\](?=\s*\d+\s*号)')
     return pattern.sub(r'〔\1〕', text)
+
+
+def strip_markdown_markers(text: str) -> str:
+    """去除正文中的 Markdown 格式标记（列表符号、加粗）。"""
+    # 去除段首无序列表标记：- 或 *
+    text = regex.sub(r'^[-*]\s+', '', text)
+    # 去除 **加粗** 标记，保留内部文字
+    text = regex.sub(r'\*\*(.+?)\*\*', r'\1', text)
+    return text
 
 
 # ============================================================
@@ -129,11 +164,13 @@ def set_run_font(run, font_name: str, size: Pt, bold: bool = False, western: str
 
 
 def set_paragraph_spacing(paragraph, line_spacing: Pt, first_line_indent=None,
-                          alignment=WD_ALIGN_PARAGRAPH.JUSTIFY):
-    """设置段落行距、首行缩进和对齐方式。"""
+                          alignment=WD_ALIGN_PARAGRAPH.JUSTIFY,
+                          space_after=Pt(0)):
+    """设置段落行距、首行缩进、段后间距和对齐方式。"""
     pf = paragraph.paragraph_format
     pf.line_spacing = line_spacing
     pf.alignment = alignment
+    pf.space_after = space_after
     if first_line_indent is not None:
         pf.first_line_indent = first_line_indent
 
@@ -141,13 +178,13 @@ def set_paragraph_spacing(paragraph, line_spacing: Pt, first_line_indent=None,
 def add_formatted_paragraph(doc, text: str, font_name: str, size: Pt,
                             bold: bool = False, first_line_indent=None,
                             alignment=WD_ALIGN_PARAGRAPH.JUSTIFY,
-                            western: str = "") -> "Paragraph":
+                            western: str = "", space_after=Pt(0)) -> "Paragraph":
     """向文档添加一个格式化好的段落，并返回该段落对象。"""
     p = doc.add_paragraph()
     run = p.add_run(text)
     set_run_font(run, font_name, size, bold, western)
     set_paragraph_spacing(p, GongwenFormat.BODY_LINE_SPACING,
-                          first_line_indent, alignment)
+                          first_line_indent, alignment, space_after)
     return p
 
 
@@ -201,6 +238,8 @@ class MarkdownBlock:
 
 def apply_punctuation_norm(text: str) -> str:
     """把正文文本的标点符号规范化。"""
+    # 先去除 Markdown 标记（列表符号、加粗等）
+    text = strip_markdown_markers(text)
     text = halfwidth_punct_to_fullwidth(text)
     text = fullwidth_to_halfwidth(text)
     text = ensure_liu_jiao_bracket(text)
