@@ -13,73 +13,83 @@
 - **标点与数字自动规范**
   正文标点全角，数字/字母半角 Times New Roman，自动纠正发文字号六角括号
 - **特殊要素识别**
-  自动处理 `主送机关`、`成文日期`、`附件` 的格式
+  自动处理 `主送机关`、`成文日期` 的格式
 - **适用文体**
   汇报、通知、请示、函等日常公文
 
-## 环境要求
+## 使用方式
+
+支持两种使用方式：**Typora 一键导出**（推荐）和 **命令行终端**。
+
+---
+
+### 方式一：Typora 一键导出（推荐）
+
+配置一次后，在 Typora 中写完公文草稿，直接 `文件 → 导出 → 公文导出` 即可生成排版好的 .docx，全程无需打开终端。
+
+#### 配置步骤
+
+1. 打开 Typora → **偏好设置 → 导出 → 添加导出**
+2. 类型选 **"自定义"**，在 **"命令"** 字段填入：
+
+```
+/你的完整路径/typora-gongwen.sh -d ~/Desktop
+```
+
+> 请将 `/你的完整路径/` 替换为项目所在的实际路径，例如：
+> ```
+> /Users/jerry/Projects/markdown-to-gongwen/typora-gongwen.sh -d ~/Desktop
+> ```
+
+3. 保存后即可使用
+
+#### 使用流程
+
+1. 在 Typora 中按 Markdown 书写约定编写公文草稿
+2. 按 **⌘+S** 保存文件
+3. `文件 → 导出 → 公文导出`
+4. 桌面自动生成与 .md 文件同名的 .docx（如 `通知.md` → `通知.docx`）
+
+#### 参数说明
+
+| 参数 | 作用 | 示例 |
+|------|------|------|
+| `-d <目录>` | 指定输出目录 | `-d ~/Desktop` 输出到桌面 |
+| `-o <路径>` | 指定完整输出路径（优先级高于 -d） | `-o ~/Desktop/公文.docx` |
+| 不加参数 | 输出到 .md 文件所在目录 | 直接运行 |
+
+---
+
+### 方式二：命令行终端
+
+#### 环境要求
 
 - Python 3.8 或更高版本
 - 依赖库：`python-docx` ≥ 0.8.11、`regex` ≥ 2024.0.0
 
-## 安装与运行
-
-### 1. 克隆仓库
+#### 安装
 
 ```bash
 git clone https://github.com/ijerrywong/markdown-to-gongwen.git
 cd markdown-to-gongwen
-```
-
-### 2. 创建虚拟环境并安装依赖
-
-```bash
 python3 -m venv venv
-source venv/bin/activate     # Windows 使用 venv\Scripts\activate
+source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-> **注意**：如果没有 `requirements.txt`，可直接运行：
-> ```bash
-> pip install "python-docx>=0.8.11" "regex>=2024.0.0"
-> ```
+#### 运行
 
-### 3. 准备 Markdown 公文草稿
-
-例如 `example_gongwen.md`，内容示例：
-
-```markdown
-# 关于进一步加强公文运转质量和效率的通知
-
-主送机关：各镇人民政府，各街道办事处，区政府各工作部门
-
-## 行文原则
-
-各单位要严格按照《党政机关公文格式》相关规定和要求，规范公文版式，做到版头、主体、版记等要素齐全。
-
-## 工作要求
-
-请各单位高度重视，认真贯彻执行相关规范。
-
-成文日期：2026年4月29日
+```bash
+python markdown-to-gongwen.py 输入.md [输出.docx]
 ```
 
-### 4. 运行脚本生成正式公文
+示例：
 
 ```bash
 python markdown-to-gongwen.py example_gongwen.md 通知公文.docx
 ```
 
-生成的文件 `通知公文.docx` 即符合标准公文排版。
-
-## 脚本参数说明
-
-```
-python markdown-to-gongwen.py <输入.md> [输出.docx]
-```
-
-- `<输入.md>`：Markdown 源文件（**必填**）
-- `[输出.docx]`：输出文件名（可选，默认 `公文输出.docx`）
+---
 
 ## Markdown 书写约定
 
@@ -118,6 +128,12 @@ A：按上方步骤使用虚拟环境即可解决，切勿直接使用 `sudo pip
 
 **Q：没有"方正小标宋简体"字体会怎样？**
 A：Word/WPS 会自动降级为类似宋体，建议在系统中安装该字体以获得最佳效果。
+
+**Q：Typora 导出时报"未读取到 Markdown 内容"**
+A：请确保已在 Typora 中保存文件（⌘+S），再点击导出。脚本会自动检测 Typora 当前文档。
+
+**Q：Typora 自定义导出中只有一个"命令"字段怎么办？**
+A：macOS 版 Typora 为单命令模式，在"命令"字段中填入完整命令即可，包含脚本路径和参数。
 
 ## 协议
 

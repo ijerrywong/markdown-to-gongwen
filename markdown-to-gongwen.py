@@ -319,6 +319,10 @@ def markdown_to_gongwen(
         alignment=WD_ALIGN_PARAGRAPH.CENTER,
     )
 
+    # 主标题后空一行
+    blank = doc.add_paragraph()
+    set_paragraph_spacing(blank, GongwenFormat.BODY_LINE_SPACING, space_after=Pt(0))
+
     # --- 主送机关 ---
     if zhusong_list:
         recipient_text = "、".join(zhusong_list) + "："
@@ -363,7 +367,7 @@ def markdown_to_gongwen(
                     GongwenFormat.HEADING1_FONT,
                     GongwenFormat.HEADING1_SIZE,
                     bold=True,
-                    first_line_indent=GongwenFormat.BODY_FIRST_LINE_INDENT,  # 🔥 改动点
+                    first_line_indent=GongwenFormat.BODY_FIRST_LINE_INDENT,
                     alignment=WD_ALIGN_PARAGRAPH.JUSTIFY,
                 )
             elif block.level == 3:
