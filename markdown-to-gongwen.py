@@ -1,17 +1,33 @@
 #!/usr/bin/env python3
 """
-Markdown-to-公文排版 Skill
+Markdown → 党政机关公文格式 (.docx)
 基于 GB/T 9704-2012《党政机关公文格式》实现，生成规范化 Word/WPS 文档。
-适用文体：汇报、通知等常用公文。
+
+Typora 一键导出（推荐）：
+  偏好设置 → 导出 → 添加导出 → 自定义
+  命令：python3 /完整路径/markdown-to-gongwen.py -d ~/Desktop
+
+命令行：
+  python3 markdown-to-gongwen.py 输入.md [输出.docx]
 """
 
-import regex
-from docx import Document
-from docx.shared import Pt, Cm, Inches, RGBColor
-from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
+from __future__ import annotations
+
 import os
+import sys
+import subprocess
+
+# ── 自动安装依赖（首次运行自动 pip install）─────────────
+try:
+    import regex
+    from docx import Document
+    from docx.shared import Pt, Cm, Inches, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+except ImportError:
+    print("❌ 缺少依赖，请运行：.venv/bin/pip install python-docx regex", file=sys.stderr, flush=True)
+    sys.exit(1)
 
 
 # ============================================================
@@ -430,21 +446,145 @@ def convert_markdown_to_gongwen(
     return markdown_to_gongwen(markdown_content, output_filename)
 
 
+def _detect_typora_document() -> str | None:
+    """macOS: 探测 Typora 当前文档路径（无需 Accessibility 权限）。"""
+
+    def _via_axdocument() -> str | None:
+        """方案A：通过 AXDocument 属性（需 Accessibility 权限）。"""
+        try:
+            cmd = [
+                "osascript", "-e",
+                'tell application "System Events" to tell process "Typora" '
+                'to get value of attribute "AXDocument" of front window'
+            ]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if r.returncode == 0 and r.stdout.strip():
+                url = r.stdout.strip()
+                if url.startswith("file://"):
+                    from urllib.parse import unquote, urlparse
+                    path = unquote(urlparse(url).path)
+                    if os.path.exists(path):
+                        return path
+        except Exception:
+            pass
+        return None
+
+    def _via_window_title() -> str | None:
+        """方案B：通过窗口标题搜索文件（无需额外权限）。"""
+        try:
+            cmd = [
+                "osascript", "-e",
+                'tell application "Typora" to get name of window 1'
+            ]
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+            if r.returncode != 0 or not r.stdout.strip():
+                return None
+            win_title = r.stdout.strip()
+            if not win_title or win_title.startswith("未命名"):
+                return None
+
+            base = win_title[:-3] if win_title.endswith(".md") else win_title
+            fname = base + ".md"
+
+            search_dirs = [
+                os.path.expanduser("~/Documents"),
+                os.path.expanduser("~/Desktop"),
+                os.getcwd(),
+            ]
+            for d in search_dirs:
+                full = os.path.join(d, fname)
+                if os.path.exists(full) and os.path.isfile(full):
+                    return os.path.abspath(full)
+
+            sp = subprocess.run(
+                ["mdfind", "-onlyin", os.path.expanduser("~"),
+                 f"kMDItemFSName == '{fname}'"],
+                capture_output=True, text=True, timeout=10
+            )
+            for line in sp.stdout.splitlines():
+                p = line.strip()
+                if os.path.exists(p) and p.endswith(".md"):
+                    return p
+        except Exception:
+            pass
+        return None
+
+    return _via_axdocument() or _via_window_title()
+
+
 # ============================================================
 # 命令行入口
 # ============================================================
 if __name__ == "__main__":
-    import sys
+    import argparse
 
-    if len(sys.argv) < 2:
-        print("用法: python markdown-to-gongwen.py <输入.md> [输出.docx]")
+    parser = argparse.ArgumentParser(
+        description="Markdown 转党政机关公文格式 (.docx)"
+    )
+    parser.add_argument(
+        "input", nargs="?",
+        help="输入 Markdown 文件路径（不传则自动探测 Typora 当前文档）"
+    )
+    parser.add_argument(
+        "output_legacy", nargs="?",
+        help=argparse.SUPPRESS  # 向后兼容：python script.py input.md output.docx
+    )
+    parser.add_argument(
+        "-o", "--output", default=None,
+        help="输出 .docx 文件路径"
+    )
+    parser.add_argument(
+        "-d", "--dir", default=None,
+        help="输出目录（默认与输入文件同目录，如 -d ~/Desktop）"
+    )
+    args = parser.parse_args()
+
+    md = None
+    input_filepath = None
+
+    # ── 模式A：传了文件路径（终端命令行模式） ──
+    if args.input:
+        input_filepath = args.input.strip("\"'")
+        if not os.path.exists(input_filepath):
+            print(f"❌ 找不到文件: {input_filepath}", file=sys.stderr)
+            sys.exit(1)
+        with open(input_filepath, "r", encoding="utf-8") as f:
+            md = f.read()
+
+    # ── 模式B：探测 Typora 当前文档 ──
+    if md is None:
+        input_filepath = _detect_typora_document()
+        if input_filepath:
+            with open(input_filepath, "r", encoding="utf-8") as f:
+                md = f.read()
+
+    # ── 模式C：stdin 兜底 ──
+    if md is None:
+        md = sys.stdin.read()
+
+    if not md or not md.strip():
+        print("❌ 错误：未读取到 Markdown 内容", file=sys.stderr)
+        print("   用法：python3 markdown-to-gongwen.py 输入.md", file=sys.stderr)
+        print("   或 Typora 导出：python3 markdown-to-gongwen.py -d ~/Desktop", file=sys.stderr)
         sys.exit(1)
 
-    input_path = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else "公文输出.docx"
-
-    with open(input_path, "r", encoding="utf-8") as f:
-        md = f.read()
+    # ── 确定输出路径 ──
+    if args.output:
+        output_path = os.path.expanduser(args.output)
+    elif args.output_legacy:
+        output_path = os.path.expanduser(args.output_legacy)
+    elif args.dir or input_filepath:
+        if args.dir:
+            out_dir = os.path.expanduser(args.dir)
+        else:
+            out_dir = os.path.dirname(input_filepath) if input_filepath else "."
+        os.makedirs(out_dir, exist_ok=True)
+        base = os.path.splitext(
+            os.path.basename(input_filepath) if input_filepath else "公文输出"
+        )[0]
+        output_path = os.path.join(out_dir, base + ".docx")
+    else:
+        output_path = "公文输出.docx"
 
     result_path = convert_markdown_to_gongwen(md, output_path)
     print(f"✅ 公文已生成: {result_path}")

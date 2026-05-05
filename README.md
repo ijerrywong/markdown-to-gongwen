@@ -2,30 +2,19 @@
 
 将 Markdown 格式的公文草稿一键转换为符合 **《党政机关公文格式》**（GB/T 9704‑2012）的 **.docx** 文件，可直接在 Microsoft Word 或 WPS 中打开、打印。
 
-## 功能特色
+## 快速开始
 
-- **标题层级自动映射**
-  `#` 主标题 → `##` 一级标题（一、）→ `###` 二级标题（（一））→ `####` 三级标题（1.）→ `#####` 四级标题（（1））
-- **精确页面设置**
-  上 3.7 cm · 下 3.5 cm · 左 2.8 cm · 右 2.6 cm，版心 156×225 mm
-- **字体、字号、行距完全合规**
-  主标题 2 号方正小标宋；一级标题 3 号黑体；二级标题 3 号楷体；正文 3 号仿宋，固定行距 28 磅
-- **标点与数字自动规范**
-  正文标点全角，数字/字母半角 Times New Roman，自动纠正发文字号六角括号
-- **特殊要素识别**
-  自动处理 `主送机关`、`成文日期` 的格式
-- **适用文体**
-  汇报、通知、请示、函等日常公文
-
-## 使用方式
-
-支持两种使用方式：**Typora 一键导出**（推荐）和 **命令行终端**。
+```bash
+git clone https://github.com/ijerrywong/markdown-to-gongwen.git
+cd markdown-to-gongwen
+bash setup.sh
+```
 
 ---
 
 ### 方式一：Typora 一键导出（推荐）
 
-配置一次后，在 Typora 中写完公文草稿，直接 `文件 → 导出 → 公文导出` 即可生成排版好的 .docx，全程无需打开终端。
+配置一次后，在 Typora 中写完公文草稿，直接 `文件 → 导出 → 公文导出` 即可生成排版好的 .docx。
 
 #### 配置步骤
 
@@ -36,7 +25,7 @@
 /你的完整路径/typora-gongwen.sh -d ~/Desktop
 ```
 
-> 请将 `/你的完整路径/` 替换为项目所在的实际路径，例如：
+> 例如：
 > ```
 > /Users/jerry/Projects/markdown-to-gongwen/typora-gongwen.sh -d ~/Desktop
 > ```
@@ -62,31 +51,16 @@
 
 ### 方式二：命令行终端
 
-#### 环境要求
-
-- Python 3.8 或更高版本
-- 依赖库：`python-docx` ≥ 0.8.11、`regex` ≥ 2024.0.0
-
-#### 安装
+确保已创建虚拟环境并安装依赖（见快速开始），然后运行：
 
 ```bash
-git clone https://github.com/ijerrywong/markdown-to-gongwen.git
-cd markdown-to-gongwen
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-#### 运行
-
-```bash
-python markdown-to-gongwen.py 输入.md [输出.docx]
+.venv/bin/python3 markdown-to-gongwen.py 输入.md [输出.docx]
 ```
 
 示例：
 
 ```bash
-python markdown-to-gongwen.py example_gongwen.md 通知公文.docx
+.venv/bin/python3 markdown-to-gongwen.py example_gongwen.md 通知公文.docx
 ```
 
 ---
@@ -120,20 +94,20 @@ python markdown-to-gongwen.py example_gongwen.md 通知公文.docx
 
 ## 常见问题
 
-**Q：运行时提示 `ModuleNotFoundError: No module named 'regex'`**
-A：请确保已激活虚拟环境（`source venv/bin/activate`）并重新安装依赖。
+**Q：首次使用如何安装依赖？**
+A：在项目目录运行 `bash setup.sh`，自动完成虚拟环境创建和依赖安装。
 
-**Q：macOS/Linux 下 `pip install` 报 `externally-managed-environment`**
-A：按上方步骤使用虚拟环境即可解决，切勿直接使用 `sudo pip`。
+**Q：新电脑部署需要拷贝哪些文件？**
+A：拷贝整个项目文件夹（不含 `.venv/` 和 `venv/`），然后在新电脑上运行 `bash setup.sh`。
 
 **Q：没有"方正小标宋简体"字体会怎样？**
 A：Word/WPS 会自动降级为类似宋体，建议在系统中安装该字体以获得最佳效果。
 
-**Q：Typora 导出时报"未读取到 Markdown 内容"**
+**Q：Typora 导出时报"未读取到 Markdown 内容"？**
 A：请确保已在 Typora 中保存文件（⌘+S），再点击导出。脚本会自动检测 Typora 当前文档。
 
-**Q：Typora 自定义导出中只有一个"命令"字段怎么办？**
-A：macOS 版 Typora 为单命令模式，在"命令"字段中填入完整命令即可，包含脚本路径和参数。
+**Q：新电脑部署需要拷贝哪些文件？**
+A：只需拷贝 `markdown-to-gongwen.py` 一个文件，确保已安装 Python 3.8+ 即可。
 
 ## 协议
 
